@@ -28,3 +28,12 @@ export interface CopilotResponse {
     executiveReasoning: string;
   }[];
 }
+
+export interface ScheduledReminder {
+  id: string;
+  taskTitle: string;
+  time: string; // e.g. "14:30"
+  active: boolean;
+  lastTriggeredDate?: string; // e.g. "2026-06-24"
+}
+

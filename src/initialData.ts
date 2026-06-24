@@ -14,11 +14,21 @@ export const initialTasks: Task[] = [
   {
     id: 2,
     originalIndex: 2,
-    title: "Lavar roupas (cargas pendentes: Toalhas, Coberta, Robes, Tapetes do banheiro, Roupas escuras, Panos de chão)",
+    title: "Lavar roupas (Carga de Toalhas já concluída)",
     category: "DOMESTICO",
     scheduleDecision: "HOJE",
-    estimatedTimeMinutes: 150,
-    executiveReasoning: "Lave apenas 1 carga super prioritária (ex: Toalhas) de forma passiva hoje. Deixe panos de chão e cobertas para a próxima semana para não encher o fds de roupas para dobrar.",
+    estimatedTimeMinutes: 40,
+    executiveReasoning: "Concluído!",
+    completed: true
+  },
+  {
+    id: 102,
+    originalIndex: 2,
+    title: "Lavar roupas (Cargas pendentes: Coberta, robes, tapetes do banheiro, roupas escuras e panos de chão)",
+    category: "DOMESTICO",
+    scheduleDecision: "SEMANA_QUE_VEM",
+    estimatedTimeMinutes: 110,
+    executiveReasoning: "Deixado para a próxima semana para não encher o fds de roupas para dobrar, conforme estratégia de sobrevivência.",
     completed: false
   },
   {
@@ -29,7 +39,7 @@ export const initialTasks: Task[] = [
     scheduleDecision: "HOJE",
     estimatedTimeMinutes: 60,
     executiveReasoning: "Prioridade humana e alimentar para o fim de semana do bebê. Faça uma quantidade maior para congelar e aliviar os próximos dias.",
-    completed: false
+    completed: true
   },
   {
     id: 4,
@@ -39,7 +49,7 @@ export const initialTasks: Task[] = [
     scheduleDecision: "HOJE",
     estimatedTimeMinutes: 25,
     executiveReasoning: "Cozinhe junto com o frango ou logo após o papá do Pedrinho para aproveitar o vapor e o tempo de fogão.",
-    completed: false
+    completed: true
   },
   {
     id: 5,
@@ -49,7 +59,7 @@ export const initialTasks: Task[] = [
     scheduleDecision: "HOJE",
     estimatedTimeMinutes: 20,
     executiveReasoning: "Tarefa rápida de fogão, essencial para garantir a base alimentar simples da casa para o fds.",
-    completed: false
+    completed: true
   },
   {
     id: 6,
@@ -59,7 +69,7 @@ export const initialTasks: Task[] = [
     scheduleDecision: "HOJE",
     estimatedTimeMinutes: 15,
     executiveReasoning: "Use temperos simples. Se o feijão já estiver cozido, é uma atividade de baixíssimo esforço de 15 minutos.",
-    completed: false
+    completed: true
   },
   {
     id: 7,
@@ -69,7 +79,7 @@ export const initialTasks: Task[] = [
     scheduleDecision: "HOJE",
     estimatedTimeMinutes: 5,
     executiveReasoning: "Microatividade física rápida. Ajuda a 'limpar a mente' e renova a energia e a higiene do ambiente.",
-    completed: false
+    completed: true
   },
   {
     id: 8,
@@ -79,7 +89,7 @@ export const initialTasks: Task[] = [
     scheduleDecision: "HOJE",
     estimatedTimeMinutes: 10,
     executiveReasoning: "Urgência estrutural da casa. Dê um telefonema rápido pela manhã para deixar pré-agendado, tirando isso da sua memória de trabalho.",
-    completed: false
+    completed: true
   },
   {
     id: 9,
@@ -89,7 +99,7 @@ export const initialTasks: Task[] = [
     scheduleDecision: "HOJE",
     estimatedTimeMinutes: 20,
     executiveReasoning: "Ver a pia limpa acalma o sistema nervoso. Faça de forma ritmada, ouvindo uma música tranquila.",
-    completed: false
+    completed: true
   },
   {
     id: 10,
@@ -189,7 +199,7 @@ export const initialTasks: Task[] = [
     scheduleDecision: "HOJE",
     estimatedTimeMinutes: 30,
     executiveReasoning: "Ajuda a clarear o visual da sala de estar para o fim de semana. Faça devagar, em etapas, talvez conversando com a Rebeca.",
-    completed: false
+    completed: true
   },
   {
     id: 20,
@@ -199,7 +209,7 @@ export const initialTasks: Task[] = [
     scheduleDecision: "HOJE",
     estimatedTimeMinutes: 30,
     executiveReasoning: "Compre via aplicativo de entrega rápida (Rappi/IFood) ou peça para o Rapha trazer no caminho para evitar que você gaste energia física saindo de casa.",
-    completed: false
+    completed: true
   },
   {
     id: 21,
@@ -209,7 +219,7 @@ export const initialTasks: Task[] = [
     scheduleDecision: "HOJE",
     estimatedTimeMinutes: 5,
     executiveReasoning: "Extremamente físico, rápido e satisfatório. 5 minutos para eliminar uma pendência visual antiga.",
-    completed: false
+    completed: true
   },
   {
     id: 22,
@@ -219,7 +229,7 @@ export const initialTasks: Task[] = [
     scheduleDecision: "HOJE",
     estimatedTimeMinutes: 15,
     executiveReasoning: "Atividade manual leve. Faça ouvindo o Pedrinho respirar ou brincando com a Rebeca. Reduz a poluição visual.",
-    completed: false
+    completed: true
   },
   {
     id: 23,
@@ -249,7 +259,7 @@ export const initialTasks: Task[] = [
     scheduleDecision: "DELEGAR_OU_APOIAR",
     estimatedTimeMinutes: 40,
     executiveReasoning: "Peça para o Rapha levar no porta-malas do carro ou mande de Uber Entrega se for urgente. Peça para pegar a mamadeira do Pedro para tirar essa viagem das suas costas.",
-    completed: false
+    completed: true
   },
   {
     id: 26,
@@ -279,6 +289,46 @@ export const initialTasks: Task[] = [
     scheduleDecision: "HOJE",
     estimatedTimeMinutes: 15,
     executiveReasoning: "Mande uma mensagem clara de 2 minutos alinhando o que está pronto e o que ficou para segunda. Alinhamento de casal evita estresse de canal de comunicação.",
+    completed: true
+  },
+  {
+    id: 301,
+    originalIndex: 301,
+    title: "Pedir o almoço por delivery",
+    category: "DOMESTICO",
+    scheduleDecision: "HOJE",
+    estimatedTimeMinutes: 10,
+    executiveReasoning: "Sem cozinhar mais hoje! Peça algo saudável e rápido por aplicativo para garantir sua energia.",
+    completed: false
+  },
+  {
+    id: 302,
+    originalIndex: 302,
+    title: "Finalizar a papa do Pedro com fubá",
+    category: "MATERNIDADE",
+    scheduleDecision: "HOJE",
+    estimatedTimeMinutes: 15,
+    executiveReasoning: "Misture o fubá e garanta o papá nutritivo do Pedrinho sem esforço.",
+    completed: false
+  },
+  {
+    id: 303,
+    originalIndex: 303,
+    title: "Passar o pano na cozinha",
+    category: "DOMESTICO",
+    scheduleDecision: "HOJE",
+    estimatedTimeMinutes: 15,
+    executiveReasoning: "Passada rápida de pano para manter o chão limpo, sem se cansar.",
+    completed: false
+  },
+  {
+    id: 304,
+    originalIndex: 304,
+    title: "Arrumar a Rebeca para o jogo",
+    category: "MATERNIDADE",
+    scheduleDecision: "HOJE",
+    estimatedTimeMinutes: 20,
+    executiveReasoning: "Ajude a Rebeca com o uniforme e os preparativos para o jogo dela.",
     completed: false
   }
 ];

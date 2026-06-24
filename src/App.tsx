@@ -29,10 +29,23 @@ import {
   Printer,
   X,
   PlayCircle,
-  Activity
+  Activity,
+  Bell,
+  Volume2,
+  BellOff,
+  Thermometer,
+  Droplets,
+  Gauge,
+  CloudRain,
+  Sun,
+  Cloud,
+  MapPin,
+  Search,
+  CloudSun,
+  RefreshCw
 } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
-import { Task, UserContext, CopilotResponse } from "./types";
+import { Task, UserContext, CopilotResponse, ScheduledReminder } from "./types";
 import { initialTasks, initialUserContext } from "./initialData";
 
 export default function App() {
@@ -205,16 +218,273 @@ export default function App() {
   };
 
   const [copilotAdvice, setCopilotAdvice] = useState<CopilotResponse>({
-    advice: "Daniele, respire fundo. Hoje é sexta-feira, você está com enxaqueca (provável efeito da transição do Topiramato + exaustão) e o Pedro não dormiu. Seu foco hoje é puramente de Sobrevivência e Conforto. Vamos reduzir sua lista de 28 para apenas os itens urgentes e rápidos em blocos.",
+    advice: "Daniele, você foi uma guerreira e concluiu 13 pendências sob exaustão! Agora, seu briefing de sobrevivência da tarde foi enxugado ao máximo. Poupe sua mente, faça apenas o que é essencial para o conforto imediato do Pedrinho, da Rebeca e seu.",
     topThree: [
-      "Fazer o papá do Pedrinho e comidinhas rápidas (arroz, feijão cozido simples com vegetais no mesmo vapor).",
-      "Comprar xampu/álcool/condicionador por delivery (iFood/Rappi) ou pedir para o Rapha trazer (não saia!).",
-      "Mandar alinhamento final curto de 1 minuto para o Rapha no WhatsApp."
+      "Pedir o almoço por delivery (Sem cozinhar mais hoje!).",
+      "Finalizar a papa do Pedro com fubá.",
+      "Passar o pano na cozinha (Rápido e sem esforço).",
+      "Arrumar a Rebeca para o jogo."
     ]
   });
   const [activeTab, setActiveTab] = useState<"HOJE" | "SEMANA_QUE_VEM" | "DELEGAR_OU_APOIAR" | "TODOS">("HOJE");
   const [viewingReasoning, setViewingReasoning] = useState<number | null>(null);
   const [showAddNew, setShowAddNew] = useState(false);
+
+  // Scheduled Focus Reminders States & Logics
+  const [showScheduledList, setShowScheduledList] = useState(false);
+  const [selectedReminderTask, setSelectedReminderTask] = useState("");
+  const [customReminderText, setCustomReminderText] = useState("");
+  const [newReminderTime, setNewReminderTime] = useState("15:00");
+  const [scheduledReminders, setScheduledReminders] = useState<ScheduledReminder[]>(() => {
+    const saved = localStorage.getItem("daniele_copilot_reminders");
+    if (saved) {
+      try {
+        return JSON.parse(saved);
+      } catch (e) {
+        // use default pre-populated below
+      }
+    }
+    return [
+      { id: "1", taskTitle: "Pedir o almoço por delivery", time: "12:15", active: true },
+      { id: "2", taskTitle: "Finalizar a papa do Pedro com fubá", time: "14:00", active: true },
+      { id: "3", taskTitle: "Passar o pano na cozinha", time: "15:15", active: true },
+      { id: "4", taskTitle: "Arrumar a Rebeca para o jogo", time: "16:30", active: true }
+    ];
+  });
+  const [activeTriggeredReminder, setActiveTriggeredReminder] = useState<ScheduledReminder | null>(null);
+
+  // Dynamic Weather Health Advice States
+  const [temperature, setTemperature] = useState<number>(24);
+  const [humidity, setHumidity] = useState<number>(55);
+  const [pressure, setPressure] = useState<number>(1012);
+  const [weatherCity, setWeatherCity] = useState<string>("São Paulo");
+  const [resolvedCity, setResolvedCity] = useState<string>("São Paulo, SP");
+  const [customWeatherAdvice, setCustomWeatherAdvice] = useState<{
+    momAdvice: string;
+    babyAdvice: string;
+    childAdvice: string;
+    generalWarning: string;
+  } | null>(null);
+  const [isFetchingWeather, setIsFetchingWeather] = useState<boolean>(false);
+  const [weatherError, setWeatherError] = useState<string | null>(null);
+
+  const getLocalWeatherAdvice = (tempVal: number, humVal: number, pressVal: number) => {
+    let momAdvice = "Daniele, beba bastante água. Com o Topiramato na primeira semana e a amamentação do Pedro, sua necessidade de hidratação dobra para prevenir o cansaço e dores de cabeça.";
+    let babyAdvice = "Mantenha o Pedro (6m) em livre demanda no peito. O leite materno é o hidratante perfeito para o bebê de 6 meses.";
+    let childAdvice = "Incentive a Rebeca (11 anos) a beber água regularmente enquanto estuda ou brinca.";
+    let generalWarning = "Clima ameno e agradável hoje. Ótimo para manter a mente tranquila.";
+
+    // Temperature logic
+    if (tempVal >= 30) {
+      momAdvice = "Daniele, calor intenso! Beba água fria a cada hora. O Topiramato reduz a capacidade de suor do corpo, então evite ficar exposta para não ter picos de dor de cabeça. Descanse os olhos.";
+      babyAdvice = "Bebê Pedro (6m) precisa de roupas super leves de algodão. Amamente em livre demanda para hidratação. Um banho morno ou fresco ajuda bastante.";
+      childAdvice = "Rebeca (11 anos) deve evitar atividades físicas pesadas sob sol direto hoje. Ofereça sucos e água gelada.";
+      generalWarning = "Alerta de calor intenso! Evite exposição e previna desidratação na amamentação.";
+    } else if (tempVal < 19) {
+      momAdvice = "Daniele, clima frio. Tome chás quentes e aconchegantes para aliviar a tensão da transição medicamentosa. Evite vento frio se estiver com dor de cabeça.";
+      babyAdvice = "Vista o Pedro em camadas confortáveis (um body e um macacão macio). Cuidado com o ressecamento da pele dele após o banho.";
+      childAdvice = "Rebeca deve se agasalhar bem ao sair. Mantenha os ambientes arejados, mas sem correntes frias.";
+      generalWarning = "Clima frio detectado. Priorize o conforto térmico do bebê Pedro e bebidas acolhedoras.";
+    }
+
+    // Humidity logic
+    if (humVal < 40) {
+      momAdvice += " A umidade está muito baixa (" + humVal + "%). A desidratação é um gatilho direto de enxaqueca com o Topiramato; dobre sua ingestão de água hoje e use colírio lubrificante se necessário.";
+      babyAdvice += " Lave as narinas do Pedro com soro fisiológico e ligue o umidificador de ar no quarto para aliviar a respiração do bebê.";
+      childAdvice += " Ajude a Rebeca a higienizar o nariz com soro e a beber água extra para evitar a garganta seca.";
+      generalWarning = "Alerta de baixa umidade do ar (" + humVal + "%). Cuidado respiratório redobrado para o bebê.";
+    } else if (humVal > 80) {
+      momAdvice += " A umidade está alta (" + humVal + "%). O ar pode parecer abafado. Mantenha os ambientes ventilados.";
+      babyAdvice += " Fique atenta a mofo ou ácaros. Deixe as janelas abertas para circulação do ar.";
+      generalWarning = "Umidade do ar elevada. Mantenha a casa bem arejada para o bem-estar de todos.";
+    }
+
+    // Pressure logic (enxaqueca trigger)
+    if (pressVal < 1010) {
+      momAdvice += " Atenção física: a pressão atmosférica está baixa (" + pressVal + " hPa), o que é um conhecido gatilho para crises de enxaqueca. Como você está na transição para o Topiramato, proteja sua visão, escureça as telas de celular/computador e evite esforço mental pesado.";
+      generalWarning = "Atenção: Pressão atmosférica baixa (" + pressVal + " hPa). Risco aumentado de dores de cabeça.";
+    }
+
+    return { momAdvice, babyAdvice, childAdvice, generalWarning };
+  };
+
+  const handleFetchRealtimeWeather = async (options?: { city?: string; lat?: number; lon?: number }) => {
+    setIsFetchingWeather(true);
+    setWeatherError(null);
+    try {
+      const payload: any = { userContext };
+      if (options?.city) {
+        payload.city = options.city;
+      } else if (options?.lat !== undefined && options?.lon !== undefined) {
+        payload.latitude = options.lat;
+        payload.longitude = options.lon;
+      } else if (weatherCity) {
+        payload.city = weatherCity;
+      }
+
+      const response = await fetch("/api/realtime-weather", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        if (data.success) {
+          setTemperature(data.temperature);
+          setHumidity(data.humidity);
+          setPressure(data.pressure);
+          setResolvedCity(data.cityName);
+          if (options?.city) {
+            setWeatherCity(options.city);
+          }
+          setCustomWeatherAdvice(data.advice);
+        } else {
+          setWeatherError("Não foi possível obter a previsão para esta localização.");
+        }
+      } else {
+        setWeatherError("Erro na resposta do servidor de clima.");
+      }
+    } catch (err) {
+      console.error("Error fetching real-time weather advice:", err);
+      setWeatherError("Erro ao conectar com o serviço de previsão do tempo.");
+    } finally {
+      setIsFetchingWeather(false);
+    }
+  };
+
+  const handleFetchGPSWeather = () => {
+    if (!navigator.geolocation) {
+      setWeatherError("Geolocalização não é suportada por este navegador.");
+      return;
+    }
+    setIsFetchingWeather(true);
+    setWeatherError(null);
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        handleFetchRealtimeWeather({
+          lat: position.coords.latitude,
+          lon: position.coords.longitude
+        });
+      },
+      (error) => {
+        console.error("Geolocation error:", error);
+        setWeatherError("Permissão de localização recusada ou indisponível. Buscando São Paulo...");
+        handleFetchRealtimeWeather({ city: "São Paulo" });
+      }
+    );
+  };
+
+  // Initial real-time weather load on mount
+  useEffect(() => {
+    handleFetchRealtimeWeather({ city: "São Paulo" });
+  }, []);
+
+  useEffect(() => {
+    localStorage.setItem("daniele_copilot_reminders", JSON.stringify(scheduledReminders));
+  }, [scheduledReminders]);
+
+  const playChime = () => {
+    try {
+      const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
+      if (!AudioContextClass) return;
+      const ctx = new AudioContextClass();
+      
+      const playTone = (freq: number, start: number, duration: number) => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = "sine";
+        osc.frequency.setValueAtTime(freq, start);
+        
+        gain.gain.setValueAtTime(0.15, start);
+        gain.gain.exponentialRampToValueAtTime(0.0001, start + duration);
+        
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start(start);
+        osc.stop(start + duration);
+      };
+      
+      // Beautiful triple focus chimes
+      playTone(523.25, ctx.currentTime, 0.4); // C5
+      playTone(659.25, ctx.currentTime + 0.15, 0.5); // E5
+      playTone(783.99, ctx.currentTime + 0.3, 0.7); // G5
+    } catch (e) {
+      console.warn("Audio Context blocked:", e);
+    }
+  };
+
+  const requestNotificationPermission = async () => {
+    if ("Notification" in window) {
+      try {
+        const permission = await Notification.requestPermission();
+        if (permission === "granted") {
+          playChime();
+        }
+      } catch (err) {
+        console.error("Erro ao solicitar permissão de notificações:", err);
+      }
+    }
+  };
+
+  useEffect(() => {
+    const checkAlarms = () => {
+      const now = new Date();
+      const hours = String(now.getHours()).padStart(2, '0');
+      const minutes = String(now.getMinutes()).padStart(2, '0');
+      const currentHourMin = `${hours}:${minutes}`;
+      const todayStr = now.toDateString();
+
+      let updated = false;
+      const newReminders = scheduledReminders.map(rem => {
+        if (rem.active && rem.time === currentHourMin && rem.lastTriggeredDate !== todayStr) {
+          // Trigger the alert!
+          setActiveTriggeredReminder(rem);
+          playChime();
+          
+          if ("Notification" in window && Notification.permission === "granted") {
+            try {
+              new Notification("MOM: Hora do seu Foco tático!", {
+                body: `Daniele, é hora de focar em: "${rem.taskTitle}"`,
+                tag: rem.id
+              });
+            } catch (err) {
+              console.error(err);
+            }
+          }
+          updated = true;
+          return { ...rem, lastTriggeredDate: todayStr };
+        }
+        return rem;
+      });
+
+      if (updated) {
+        setScheduledReminders(newReminders);
+      }
+    };
+
+    checkAlarms();
+    const interval = setInterval(checkAlarms, 10000);
+    return () => clearInterval(interval);
+  }, [scheduledReminders]);
+
+  // Auto-migrate local storage cache to the afternoon briefing state
+  useEffect(() => {
+    const isMigrated = localStorage.getItem("daniele_copilot_v3_afternoon");
+    if (!isMigrated) {
+      setTasks(initialTasks);
+      setCopilotAdvice({
+        advice: "Daniele, você foi uma guerreira e concluiu 13 pendências sob exaustão! Agora, seu briefing de sobrevivência da tarde foi enxugado ao máximo. Poupe sua mente, faça apenas o que é essencial para o conforto imediato do Pedrinho, da Rebeca e seu.",
+        topThree: [
+          "Pedir o almoço por delivery (Sem cozinhar mais hoje!).",
+          "Finalizar a papa do Pedro com fubá.",
+          "Passar o pano na cozinha (Rápido e sem esforço).",
+          "Arrumar a Rebeca para o jogo."
+        ]
+      });
+      localStorage.setItem("daniele_copilot_v3_afternoon", "true");
+    }
+  }, []);
 
   // Save changes to localStorage
   useEffect(() => {
@@ -567,7 +837,7 @@ export default function App() {
         {/* Mobile friendly rescheduling control */}
         <div className="sm:hidden mt-3 pt-2.5 border-t border-slate-900 flex items-center space-x-2 font-sans">
           <span className="text-[10px] text-slate-500">Agendamento:</span>
-          <div className="flex gap-1">
+          <div className="flex gap-1 flex-wrap">
             {["HOJE", "SEMANA_QUE_VEM", "DELEGAR_OU_APOIAR"].map((opt) => (
               <button
                 key={opt}
@@ -878,10 +1148,24 @@ export default function App() {
                                 )}
                               </button>
                               
-                              <div className="flex-1">
+                              <div className="flex-1 flex flex-col">
                                 <span className={`font-medium text-[11px] leading-relaxed font-sans ${isCheck ? "text-slate-500 line-through" : "text-slate-200"}`}>
                                   {step}
                                 </span>
+                                {(() => {
+                                  const rem = scheduledReminders.find(r => 
+                                    r.taskTitle.toLowerCase().trim() === step.toLowerCase().trim()
+                                  );
+                                  if (rem && rem.active) {
+                                    return (
+                                      <div className="mt-1.5 flex items-center space-x-1 text-[9px] font-bold font-mono text-teal-400 bg-teal-950/40 border border-teal-900/30 px-1.5 py-0.5 rounded-md w-max">
+                                        <Clock className="w-3 h-3 text-teal-400 animate-pulse" />
+                                        <span>Foco MOM agendado às {rem.time}</span>
+                                      </div>
+                                    );
+                                  }
+                                  return null;
+                                })()}
                               </div>
                             </div>
                           );
@@ -941,6 +1225,212 @@ export default function App() {
                       </div>
                     </div>
 
+                  </div>
+
+                  {/* Central de Lembretes Agendados MOM */}
+                  <div className="mt-5 pt-5 border-t border-slate-800/60 relative z-10 space-y-4">
+                    
+                    {/* Quick Add Custom Reminder - Rodapé */}
+                    <div className="bg-slate-950/45 border border-slate-850/60 p-3 rounded-xl flex flex-col md:flex-row md:items-center justify-between gap-3">
+                      <div className="flex-1 space-y-1.5">
+                        <div className="flex items-center justify-between">
+                          <span className="text-[10px] font-bold text-teal-400 font-mono uppercase tracking-widest flex items-center space-x-1.5">
+                            <Bell className="w-3.5 h-3.5 animate-pulse text-amber-400" />
+                            <span>Agendar Novo Lembrete de Foco (MOM)</span>
+                          </span>
+                          
+                          <button
+                            type="button"
+                            onClick={() => setShowScheduledList(!showScheduledList)}
+                            className="text-[9px] font-mono text-slate-400 hover:text-white underline cursor-pointer"
+                          >
+                            {showScheduledList ? "Ocultar Central de Lembretes ✕" : `Ver Lembretes Agendados (${scheduledReminders.filter(r => r.active).length} ativos)`}
+                          </button>
+                        </div>
+                        
+                        <div className="flex flex-col sm:flex-row gap-2">
+                          <select
+                            value={selectedReminderTask}
+                            onChange={(e) => {
+                              setSelectedReminderTask(e.target.value);
+                            }}
+                            className="bg-slate-900 border border-slate-800 rounded-lg px-2.5 py-1.5 text-[11px] text-slate-300 focus:outline-none focus:border-slate-700 flex-1 min-w-[200px]"
+                          >
+                            <option value="" disabled>Escolha uma das Prioridades da Tarde...</option>
+                            {copilotAdvice.topThree.map((step, sIdx) => (
+                              <option key={sIdx} value={step}>
+                                {step}
+                              </option>
+                            ))}
+                            <option value="custom">-- Digitar Outro Lembrete Personalizado --</option>
+                          </select>
+                          
+                          {selectedReminderTask === "custom" && (
+                            <input
+                              type="text"
+                              placeholder="Descreva o seu lembrete personalizado..."
+                              value={customReminderText}
+                              onChange={(e) => setCustomReminderText(e.target.value)}
+                              className="bg-slate-900 border border-slate-800 rounded-lg px-2.5 py-1.5 text-[11px] text-slate-300 focus:outline-none focus:border-slate-700 flex-1"
+                            />
+                          )}
+                          
+                          <input
+                            type="time"
+                            value={newReminderTime}
+                            onChange={(e) => setNewReminderTime(e.target.value)}
+                            className="bg-slate-900 border border-slate-800 rounded-lg px-2.5 py-1.5 text-[11px] font-mono text-slate-300 focus:outline-none focus:border-slate-700 w-24 self-start sm:self-auto"
+                          />
+                        </div>
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          let title = selectedReminderTask;
+                          if (title === "custom") {
+                            title = customReminderText.trim();
+                          }
+                          
+                          if (!title) {
+                            alert("Por favor, selecione ou escreva o assunto do lembrete.");
+                            return;
+                          }
+                          
+                          const time = newReminderTime || "15:00";
+                          const newId = String(Date.now());
+                          
+                          setScheduledReminders(prev => [
+                            ...prev,
+                            { id: newId, taskTitle: title, time, active: true }
+                          ]);
+                          
+                          // Reset fields
+                          setSelectedReminderTask("");
+                          setCustomReminderText("");
+                          
+                          // Play chime for confirmation
+                          playChime();
+                        }}
+                        className="px-4 py-2 bg-gradient-to-r from-teal-500 to-indigo-600 hover:from-teal-400 hover:to-indigo-500 text-white font-bold text-[11px] font-sans rounded-lg shadow-sm transition-all duration-150 self-end md:self-center flex items-center space-x-1.5 cursor-pointer"
+                      >
+                        <Plus className="w-3.5 h-3.5" />
+                        <span>Agendar Lembrete</span>
+                      </button>
+                    </div>
+
+                    {/* Collapsible Scheduled List and Settings */}
+                    {showScheduledList && (
+                      <motion.div 
+                        initial={{ opacity: 0, y: -10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        className="space-y-4 bg-slate-950/20 p-4 rounded-xl border border-slate-850/50 mt-3"
+                      >
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-900/60">
+                          <div>
+                            <h4 className="text-xs font-bold text-white uppercase tracking-wider font-mono flex items-center space-x-1.5">
+                              <span>Central de Lembretes Agendados MOM</span>
+                            </h4>
+                            <p className="text-[9px] text-slate-400 font-sans">
+                              A MOM enviará alertas com som e notificações para guiar seu foco nos blocos da tarde.
+                            </p>
+                          </div>
+                          
+                          <div className="flex items-center space-x-2 self-start sm:self-center">
+                            <button
+                              type="button"
+                              onClick={requestNotificationPermission}
+                              className="px-2.5 py-1 text-[9px] font-bold font-mono text-slate-300 hover:text-white bg-slate-850 hover:bg-slate-800 rounded border border-slate-750 transition-all flex items-center space-x-1.5 cursor-pointer"
+                              title="Permitir notificações do sistema"
+                            >
+                              <Volume2 className="w-3.5 h-3.5 text-slate-400" />
+                              <span>Notificar no Computador</span>
+                            </button>
+                            
+                            <button
+                              type="button"
+                              onClick={playChime}
+                              className="px-2.5 py-1 text-[9px] font-bold font-mono text-amber-400 hover:text-amber-300 bg-amber-950/20 hover:bg-amber-950/40 rounded border border-amber-900/40 transition-all flex items-center space-x-1 cursor-pointer"
+                            >
+                              <span>Testar Som 🔊</span>
+                            </button>
+                          </div>
+                        </div>
+
+                        {scheduledReminders.length === 0 ? (
+                          <p className="text-[10px] text-slate-500 font-sans italic text-center py-2">
+                            Nenhum lembrete agendado no momento. Use o formulário acima para agendar!
+                          </p>
+                        ) : (
+                          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                            {scheduledReminders.map(rem => (
+                              <div 
+                                key={rem.id}
+                                className={`bg-slate-1000/60 border rounded-xl p-3 flex flex-col justify-between space-y-3 transition-all duration-200 ${
+                                  rem.active 
+                                    ? "border-slate-800 hover:border-slate-750 bg-slate-950/40" 
+                                    : "border-slate-900/50 opacity-50 hover:opacity-75"
+                                }`}
+                              >
+                                <div className="space-y-1">
+                                  <div className="flex items-start justify-between gap-1">
+                                    <span className="text-[10px] font-bold text-slate-500 font-mono">
+                                      Lembrete #{rem.id}
+                                    </span>
+                                    
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        setScheduledReminders(prev => prev.map(r => r.id === rem.id ? { ...r, active: !r.active } : r));
+                                      }}
+                                      className={`text-[9px] font-bold font-mono px-1.5 py-0.5 rounded transition-all cursor-pointer ${
+                                        rem.active
+                                          ? "bg-emerald-950/40 text-emerald-400 border border-emerald-900/50 hover:bg-emerald-950/60"
+                                          : "bg-slate-850 text-slate-500 border border-slate-800 hover:bg-slate-800"
+                                      }`}
+                                    >
+                                      {rem.active ? "ATIVO" : "INATIVO"}
+                                    </button>
+                                  </div>
+                                  
+                                  <p className="text-[11px] font-medium text-slate-200 leading-tight">
+                                    {rem.taskTitle}
+                                  </p>
+                                </div>
+
+                                <div className="flex items-center justify-between pt-1 border-t border-slate-900/30">
+                                  <div className="flex items-center space-x-1">
+                                    <Clock className="w-3 h-3 text-slate-500" />
+                                    <input
+                                      type="time"
+                                      value={rem.time}
+                                      onChange={(e) => {
+                                        const val = e.target.value;
+                                        if (val) {
+                                          setScheduledReminders(prev => prev.map(r => r.id === rem.id ? { ...r, time: val } : r));
+                                        }
+                                      }}
+                                      className="bg-slate-900/80 border border-slate-800 rounded px-1.5 py-0.5 text-[10px] font-mono text-slate-200 focus:outline-none focus:border-slate-700 w-16"
+                                    />
+                                  </div>
+                                  
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setScheduledReminders(prev => prev.filter(r => r.id !== rem.id));
+                                    }}
+                                    className="text-slate-600 hover:text-red-400 transition-all p-1 hover:bg-slate-900/50 rounded cursor-pointer"
+                                    title="Remover lembrete"
+                                  >
+                                    <Trash2 className="w-3.5 h-3.5" />
+                                  </button>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </motion.div>
+                    )}
                   </div>
 
                 </motion.section>
@@ -1215,27 +1705,299 @@ export default function App() {
           </div>
         </section>
 
-        {/* Informational block for Daniele to understand medication & recovery factors */}
-        <section className="bg-amber-500/5 rounded-xl p-5 border border-amber-500/10 space-y-4 font-sans mt-6">
-          <div className="flex items-center space-x-2 text-amber-300">
-            <AlertTriangle className="w-4 h-4 text-amber-500" />
-            <h4 className="text-xs font-bold uppercase tracking-wider font-mono">Conselhos gerais da MOM com base nas suas medicações</h4>
+        {/* Dynamic Weather-Based Health Advice Section */}
+        <section className="bg-slate-900/35 border border-slate-800/80 rounded-2xl p-6 space-y-6 font-sans mt-6">
+          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 pb-4 border-b border-slate-900/60">
+            <div className="flex items-center space-x-3">
+              <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-amber-500/10 to-orange-500/10 border border-orange-500/20 flex items-center justify-center text-amber-400 shadow-inner">
+                <CloudSun className="w-6 h-6 animate-bounce" />
+              </div>
+              <div>
+                <h4 className="text-sm font-bold text-white uppercase tracking-wider font-mono flex items-center gap-1.5">
+                  <span>M.O.M Clima & Prevenção Real</span>
+                  <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping"></span>
+                </h4>
+                <p className="text-[10px] text-slate-400">Conselhos automáticos e personalizados com base no clima real da sua cidade para Daniele, Pedro e Rebeca.</p>
+              </div>
+            </div>
+
+            {/* Real-time search and GPS controls */}
+            <div className="flex flex-wrap items-center gap-2.5">
+              <form 
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  handleFetchRealtimeWeather();
+                }}
+                className="flex items-center bg-slate-950/80 border border-slate-800 rounded-xl px-2.5 py-1.5 w-full sm:w-auto"
+              >
+                <input
+                  type="text"
+                  value={weatherCity}
+                  onChange={(e) => setWeatherCity(e.target.value)}
+                  placeholder="Buscar Cidade (Ex: Campinas)"
+                  className="bg-transparent text-xs text-slate-200 placeholder-slate-500 focus:outline-none w-full sm:w-48 font-sans"
+                />
+                <button
+                  type="submit"
+                  disabled={isFetchingWeather}
+                  className="text-slate-400 hover:text-white transition-all ml-1"
+                  title="Buscar Clima"
+                >
+                  <Search className="w-3.5 h-3.5" />
+                </button>
+              </form>
+
+              <button
+                type="button"
+                onClick={handleFetchGPSWeather}
+                disabled={isFetchingWeather}
+                className="text-xs bg-slate-800/80 hover:bg-slate-800 border border-slate-700/60 hover:border-slate-600 text-slate-300 hover:text-white px-3 py-2 rounded-xl transition-all cursor-pointer flex items-center space-x-1.5 font-bold disabled:opacity-50"
+              >
+                <MapPin className="w-3.5 h-3.5 text-rose-400" />
+                <span>Usar GPS 📍</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => handleFetchRealtimeWeather()}
+                disabled={isFetchingWeather}
+                className="p-2 bg-slate-850 hover:bg-slate-800 border border-slate-800 rounded-xl text-slate-400 hover:text-white transition-all disabled:opacity-50 cursor-pointer"
+                title="Sincronizar Novamente"
+              >
+                <RefreshCw className={`w-3.5 h-3.5 ${isFetchingWeather ? "animate-spin" : ""}`} />
+              </button>
+            </div>
           </div>
-          <p className="text-[11px] text-slate-300 leading-relaxed font-sans">
-            Daniele, o **Topiramato** é conhecido por provocar fadiga mental, formigamentos discretos ou sensação de lentidão intelectual em suas primeiras semanas de introdução (especialmente se combinado com sonolência extrema decorrente da rotina do Pedrinho acordando na madrugada). Beber bastante água fria e adiar a leitura pesada dos seus novos livros ou tarefas de digitação visual intensa não é falta de produtividade; é **estratégia de sobrevivência biológica**. Cuide-se e poupe os seus olhos!
-          </p>
-          <div className="text-[10px] text-slate-500 leading-relaxed font-sans border-t border-slate-900/60 pt-3">
-            <em><strong>Aviso legal:</strong> Este painel destina-se exclusivamente para fins informativos e de suporte à organização pessoal da rotina. Não constitui aconselhamento médico de qualquer natureza, diagnóstico clínico ou indicação de tratamento. Procure sempre orientação de um médico especialista ou profissional de saúde qualificado antes de realizar qualquer alteração em seu tratamento ou rotina de saúde.</em>
+
+          {/* Active location indicator banner */}
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2.5 bg-slate-950/30 p-3 rounded-xl border border-slate-850/60">
+            <div className="flex items-center space-x-2 text-xs">
+              <span className="text-[10px] text-slate-500 font-mono font-bold uppercase tracking-wider">Localidade Ativa:</span>
+              <span className="font-bold text-teal-400 flex items-center gap-1">
+                <MapPin className="w-3 h-3 text-teal-400" />
+                {resolvedCity}
+              </span>
+            </div>
+            <div className="flex items-center gap-3.5 text-[11px] font-mono">
+              <span className="text-orange-400 font-semibold">{temperature}°C</span>
+              <span className="text-slate-500">•</span>
+              <span className="text-sky-400 font-semibold">{humidity}% Umidade</span>
+              <span className="text-slate-500">•</span>
+              <span className="text-teal-400 font-semibold">{pressure} hPa</span>
+            </div>
           </div>
-          <div className="pt-2 border-t border-slate-900/40 flex flex-wrap gap-2 items-center">
-            <button
-              onClick={() => window.print()}
-              title="Exportar Relatório PDF"
-              className="text-xs bg-teal-500/10 hover:bg-teal-500/20 text-teal-300 hover:text-white border border-teal-500/20 px-4 py-2 rounded-xl font-bold flex items-center space-x-2 shadow-sm transition-all cursor-pointer font-sans"
-            >
-              <Printer className="w-4 h-4 text-teal-400" />
-              <span>Exportar Relatório Diário (PDF)</span>
-            </button>
+
+          {/* Weather error message */}
+          {weatherError && (
+            <div className="p-3 bg-rose-500/5 border border-rose-500/20 text-rose-300 rounded-xl text-[11px] font-sans">
+              ⚠️ {weatherError}
+            </div>
+          )}
+
+          {/* Simulation Drawer (Collapsible sliders if they want to try weather extremes manually) */}
+          <div className="bg-slate-950/20 p-4 rounded-xl border border-slate-900 space-y-4">
+            <div className="flex items-center justify-between">
+              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest font-mono">Simulador de Extremos de Clima (Controle Manual)</span>
+              <span className="text-[8px] bg-amber-500/10 text-amber-400 px-1.5 py-0.5 rounded font-mono font-bold uppercase">Ajuste Temporário</span>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              {/* Temp Control */}
+              <div className="space-y-1.5">
+                <div className="flex justify-between items-center">
+                  <label className="text-[10px] text-slate-400 font-mono flex items-center space-x-1">
+                    <Thermometer className="w-3 h-3 text-orange-400" />
+                    <span>Temperatura</span>
+                  </label>
+                  <span className="text-[11px] font-mono font-bold text-orange-400">{temperature}°C</span>
+                </div>
+                <input
+                  type="range"
+                  min="10"
+                  max="42"
+                  step="1"
+                  value={temperature}
+                  onChange={(e) => {
+                    setTemperature(Number(e.target.value));
+                    setCustomWeatherAdvice(null);
+                  }}
+                  className="w-full h-1 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-orange-500"
+                />
+              </div>
+
+              {/* Humidity Control */}
+              <div className="space-y-1.5 border-t sm:border-t-0 sm:border-l border-slate-900 sm:pl-4 pt-3 sm:pt-0">
+                <div className="flex justify-between items-center">
+                  <label className="text-[10px] text-slate-400 font-mono flex items-center space-x-1">
+                    <Droplets className="w-3 h-3 text-sky-400" />
+                    <span>Umidade do Ar</span>
+                  </label>
+                  <span className="text-[11px] font-mono font-bold text-sky-400">{humidity}%</span>
+                </div>
+                <input
+                  type="range"
+                  min="10"
+                  max="100"
+                  step="5"
+                  value={humidity}
+                  onChange={(e) => {
+                    setHumidity(Number(e.target.value));
+                    setCustomWeatherAdvice(null);
+                  }}
+                  className="w-full h-1 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-sky-500"
+                />
+              </div>
+
+              {/* Pressure Control */}
+              <div className="space-y-1.5 border-t sm:border-t-0 sm:border-l border-slate-900 sm:pl-4 pt-3 sm:pt-0">
+                <div className="flex justify-between items-center">
+                  <label className="text-[10px] text-slate-400 font-mono flex items-center space-x-1">
+                    <Gauge className="w-3 h-3 text-teal-400" />
+                    <span>Pressão Atmosf.</span>
+                  </label>
+                  <span className="text-[11px] font-mono font-bold text-teal-400">{pressure} hPa</span>
+                </div>
+                <input
+                  type="range"
+                  min="990"
+                  max="1030"
+                  step="1"
+                  value={pressure}
+                  onChange={(e) => {
+                    setPressure(Number(e.target.value));
+                    setCustomWeatherAdvice(null);
+                  }}
+                  className="w-full h-1 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-teal-500"
+                />
+              </div>
+            </div>
+            <p className="text-[9px] text-slate-500 font-sans italic leading-none">
+              Dica: Ajustar estes controles permite que você visualize na hora o impacto fisiológico que o clima gera na sua rotina e na enxaqueca (Topiramato).
+            </p>
+          </div>
+
+          {/* Current Warning Alert */}
+          {(() => {
+            const currentAdvice = customWeatherAdvice || getLocalWeatherAdvice(temperature, humidity, pressure);
+            if (!currentAdvice.generalWarning) return null;
+            return (
+              <div className="p-3.5 bg-amber-500/5 border border-amber-500/20 text-amber-300 rounded-xl text-[11px] flex items-start gap-2.5">
+                <AlertTriangle className="w-4 h-4 text-amber-500 flex-shrink-0 mt-0.5" />
+                <div>
+                  <span className="font-bold uppercase font-mono mr-1">Alerta Climático MOM:</span>
+                  <span>{currentAdvice.generalWarning}</span>
+                </div>
+              </div>
+            );
+          })()}
+
+          {/* Dynamic Advice Cards (3 Columns) */}
+          {(() => {
+            const currentAdvice = customWeatherAdvice || getLocalWeatherAdvice(temperature, humidity, pressure);
+
+            return (
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                {/* Mom Card */}
+                <div className="bg-slate-950/20 border border-slate-850/60 p-4 rounded-xl space-y-3 flex flex-col justify-between">
+                  <div className="space-y-2">
+                    <div className="flex items-center space-x-2 text-rose-300">
+                      <HeartHandshake className="w-4 h-4 text-rose-400" />
+                      <h5 className="text-[11px] font-bold uppercase tracking-wider font-mono">Saúde da Mãe (Daniele)</h5>
+                    </div>
+                    <p className="text-[11px] text-slate-300 leading-relaxed font-sans whitespace-pre-line">
+                      {currentAdvice.momAdvice}
+                    </p>
+                  </div>
+                  <div className="text-[9px] text-slate-500 font-mono pt-2 border-t border-slate-900/30 flex items-center justify-between">
+                    <span>Foco: Topiramato e Lactação</span>
+                    <span className="text-[8px] px-1 bg-rose-500/10 text-rose-400 rounded">Mãe</span>
+                  </div>
+                </div>
+
+                {/* Baby Card */}
+                <div className="bg-slate-950/20 border border-slate-850/60 p-4 rounded-xl space-y-3 flex flex-col justify-between">
+                  <div className="space-y-2">
+                    <div className="flex items-center space-x-2 text-cyan-300">
+                      <Smile className="w-4 h-4 text-cyan-400" />
+                      <h5 className="text-[11px] font-bold uppercase tracking-wider font-mono">Cuidado com o Bebê (Pedro)</h5>
+                    </div>
+                    <p className="text-[11px] text-slate-300 leading-relaxed font-sans whitespace-pre-line">
+                      {currentAdvice.babyAdvice}
+                    </p>
+                  </div>
+                  <div className="text-[9px] text-slate-500 font-mono pt-2 border-t border-slate-900/30 flex items-center justify-between">
+                    <span>Foco: Pedro (6 meses)</span>
+                    <span className="text-[8px] px-1 bg-cyan-500/10 text-cyan-400 rounded">Bebê</span>
+                  </div>
+                </div>
+
+                {/* Child Card */}
+                <div className="bg-slate-950/20 border border-slate-850/60 p-4 rounded-xl space-y-3 flex flex-col justify-between">
+                  <div className="space-y-2">
+                    <div className="flex items-center space-x-2 text-purple-300">
+                      <UserPlus className="w-4 h-4 text-purple-400" />
+                      <h5 className="text-[11px] font-bold uppercase tracking-wider font-mono">Cuidado com a Criança (Rebeca)</h5>
+                    </div>
+                    <p className="text-[11px] text-slate-300 leading-relaxed font-sans whitespace-pre-line">
+                      {currentAdvice.childAdvice}
+                    </p>
+                  </div>
+                  <div className="text-[9px] text-slate-500 font-mono pt-2 border-t border-slate-900/30 flex items-center justify-between">
+                    <span>Foco: Rebeca (11 anos)</span>
+                    <span className="text-[8px] px-1 bg-purple-500/10 text-purple-400 rounded">Criança</span>
+                  </div>
+                </div>
+              </div>
+            );
+          })()}
+
+          {/* Controls to fetch further AI advice and general disclaimer / printing */}
+          <div className="pt-4 border-t border-slate-900/60 flex flex-col sm:flex-row items-center justify-between gap-4 font-sans">
+            <div className="flex flex-wrap gap-2.5">
+              <button
+                type="button"
+                onClick={() => handleFetchRealtimeWeather()}
+                disabled={isFetchingWeather}
+                className="text-xs bg-gradient-to-r from-amber-500 to-yellow-600 hover:brightness-110 text-slate-950 px-4 py-2.5 rounded-xl font-extrabold flex items-center space-x-1.5 shadow-md shadow-amber-950/20 transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {isFetchingWeather ? (
+                  <>
+                    <span className="w-3.5 h-3.5 border-2 border-slate-950 border-t-transparent rounded-full animate-spin"></span>
+                    <span>Buscando Clima & Consolidando com IA...</span>
+                  </>
+                ) : (
+                  <>
+                    <Brain className="w-4 h-4 text-slate-950" />
+                    <span>MOM, Sincronizar Clima e Conselhos Ativos 🔮</span>
+                  </>
+                )}
+              </button>
+
+              {customWeatherAdvice && (
+                <button
+                  type="button"
+                  onClick={() => setCustomWeatherAdvice(null)}
+                  className="text-xs text-slate-400 hover:text-white bg-slate-800/40 hover:bg-slate-800 px-3 py-2 rounded-xl transition-all cursor-pointer border border-slate-800"
+                >
+                  Usar Conselhos Instantâneos
+                </button>
+              )}
+            </div>
+
+            <div className="flex gap-2 w-full sm:w-auto justify-end">
+              <button
+                onClick={() => window.print()}
+                title="Exportar Relatório PDF"
+                className="text-xs bg-teal-500/10 hover:bg-teal-500/20 text-teal-300 hover:text-white border border-teal-500/20 px-4 py-2 rounded-xl font-bold flex items-center space-x-2 shadow-sm transition-all cursor-pointer"
+              >
+                <Printer className="w-4 h-4 text-teal-400" />
+                <span>Exportar Relatório Diário (PDF)</span>
+              </button>
+            </div>
+          </div>
+
+          <div className="text-[9px] text-slate-500 leading-relaxed border-t border-slate-900/60 pt-3">
+            <em><strong>Aviso legal importante:</strong> Este painel destina-se exclusivamente para fins informativos e de suporte à organização pessoal da rotina. Não constitui aconselhamento médico de qualquer natureza, diagnóstico clínico ou indicação de tratamento. Procure sempre orientação de um médico especialista ou profissional de saúde qualificado antes de realizar qualquer alteração em seu tratamento ou rotina de saúde.</em>
           </div>
         </section>
 
@@ -1258,6 +2020,99 @@ export default function App() {
           </div>
         </div>
       </footer>
+
+      {/* MOM Focus Alarm Trigger Overlay Modal */}
+      <AnimatePresence>
+        {activeTriggeredReminder && (
+          <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-slate-950/95 backdrop-blur-md z-50 flex items-center justify-center p-4 font-sans"
+          >
+            <motion.div
+              initial={{ scale: 0.9, y: 20 }}
+              animate={{ scale: 1, y: 0 }}
+              exit={{ scale: 0.9, y: 20 }}
+              className="bg-slate-900 border border-amber-500/40 max-w-lg w-full rounded-2xl p-6 md:p-8 space-y-6 shadow-2xl relative overflow-hidden"
+            >
+              {/* Pulsing ambient glow effect */}
+              <div className="absolute inset-0 bg-radial-gradient from-amber-500/10 to-transparent pointer-events-none animate-pulse" />
+
+              <div className="text-center space-y-3 relative z-10">
+                <div className="w-16 h-16 rounded-full bg-amber-500/10 border-2 border-amber-400 flex items-center justify-center mx-auto text-amber-400 shadow-lg shadow-amber-500/10 animate-bounce">
+                  <Bell className="w-7 h-7" />
+                </div>
+                
+                <div>
+                  <span className="text-[10px] font-bold font-mono text-amber-400 uppercase tracking-widest bg-amber-950/40 px-2 py-0.5 rounded-full border border-amber-900/30">
+                    Alerta de Foco Tático • MOM
+                  </span>
+                  <h2 className="text-xl font-bold text-white mt-2">
+                    Daniele, é hora de focar!
+                  </h2>
+                  <p className="text-xs text-slate-400">
+                    Sua Outra Mente programou este bloco para garantir seu conforto e o das crianças.
+                  </p>
+                </div>
+              </div>
+
+              <div className="bg-slate-950/80 border border-slate-800/80 p-5 rounded-xl text-center space-y-2 relative z-10 shadow-inner">
+                <p className="text-xs text-slate-400 font-mono">Tarefa Designada:</p>
+                <p className="text-base font-bold text-teal-300">
+                  "{activeTriggeredReminder.taskTitle}"
+                </p>
+                <p className="text-[10px] text-slate-500 italic">
+                  Planejado para às {activeTriggeredReminder.time}
+                </p>
+              </div>
+
+              <div className="flex flex-col sm:flex-row gap-3 relative z-10">
+                <button
+                  type="button"
+                  onClick={() => {
+                    // Dispensar lembrete
+                    setActiveTriggeredReminder(null);
+                  }}
+                  className="flex-1 py-3 text-xs font-bold font-sans text-slate-400 hover:text-slate-200 bg-slate-850 hover:bg-slate-800 rounded-xl border border-slate-800 transition-all cursor-pointer"
+                >
+                  Adiar / Dispensar
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    // Marcar como concluído diretamente
+                    // Find the task corresponding to the reminder
+                    const taskToComplete = tasks.find(t => t.title.toLowerCase().trim() === activeTriggeredReminder.taskTitle.toLowerCase().trim());
+                    if (taskToComplete) {
+                      setTasks(prev => prev.map(t => t.id === taskToComplete.id ? { ...t, completed: true } : t));
+                    } else {
+                      // Maybe it was a custom topThree string - check if there's matching step and toggle completion in micro steps
+                      setCompletedMicroSteps(prev => ({ ...prev, [activeTriggeredReminder.taskTitle]: true }));
+                    }
+                    setActiveTriggeredReminder(null);
+                    playChime();
+                  }}
+                  className="flex-1 py-3 text-xs font-bold font-sans text-slate-950 bg-gradient-to-r from-teal-400 to-emerald-400 hover:from-teal-350 hover:to-emerald-350 rounded-xl shadow-lg hover:shadow-teal-500/10 transition-all cursor-pointer"
+                >
+                  Concluí Agora! ✨
+                </button>
+              </div>
+
+              <div className="text-center relative z-10 pt-1">
+                <button
+                  type="button"
+                  onClick={playChime}
+                  className="text-[10px] font-semibold text-slate-500 hover:text-slate-400 bg-transparent border-none cursor-pointer hover:underline"
+                >
+                  Repetir Som de Alerta 🔊
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* 
         PRINTABLE REPORT SECTION 
