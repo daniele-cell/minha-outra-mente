@@ -52,56 +52,97 @@ Você deve responder com um JSON estruturado contendo:
 - "topThree": Um array com os 3 micro-passos acionáveis imediatos para as próximas 2 horas.
 - "categorizedTasks": Um array de tarefas categorizadas com as novas decisões ("HOJE", "SEMANA_QUE_VEM" ou "DELEGAR_OU_APOIAR"), a justificativa da MOM (executiveReasoning) e estimativa de tempo realista.`;
 
-      const response = await ai.models.generateContent({
-        model: "gemini-3.5-flash",
-        contents: `Contexto da usuária: ${JSON.stringify(userContext)}
+      let responseData;
+      try {
+        const response = await ai.models.generateContent({
+          model: "gemini-3.5-flash",
+          contents: `Contexto da usuária: ${JSON.stringify(userContext)}
 Tarefas a analisar: ${JSON.stringify(tasks)}`,
-        config: {
-          systemInstruction: systemPrompt,
-          responseMimeType: "application/json",
-          responseSchema: {
-            type: Type.OBJECT,
-            required: ["advice", "topThree", "categorizedTasks"],
-            properties: {
-              advice: {
-                type: Type.STRING,
-                description: "Mensagem motivacional e de clareza executiva para Daniele para acalmar a mente.",
-              },
-              topThree: {
-                type: Type.ARRAY,
-                items: { type: Type.STRING },
-                description: "Os 3 passos exatos com os quais ela deve começar agora nas próximas duas horas.",
-              },
-              categorizedTasks: {
-                type: Type.ARRAY,
-                description: "Lista completa das tarefas processadas com priorização e tags temporais.",
-                items: {
-                  type: Type.OBJECT,
-                  required: ["id", "title", "scheduleDecision", "estimatedTimeMinutes", "executiveReasoning"],
-                  properties: {
-                    id: { type: Type.INTEGER },
-                    title: { type: Type.STRING },
-                    scheduleDecision: {
-                      type: Type.STRING,
-                      description: "Tomada de decisão: 'HOJE', 'SEMANA_QUE_VEM' ou 'DELEGAR_OU_APOIAR'",
-                    },
-                    estimatedTimeMinutes: {
-                      type: Type.INTEGER,
-                      description: "Tempo estimado realista para execução em minutos",
-                    },
-                    executiveReasoning: {
-                      type: Type.STRING,
-                      description: "Breve explicação do porquê desta decisão, acalmando o lado impaciente dela.",
+          config: {
+            systemInstruction: systemPrompt,
+            responseMimeType: "application/json",
+            responseSchema: {
+              type: Type.OBJECT,
+              required: ["advice", "topThree", "categorizedTasks"],
+              properties: {
+                advice: {
+                  type: Type.STRING,
+                  description: "Mensagem motivacional e de clareza executiva para Daniele para acalmar a mente.",
+                },
+                topThree: {
+                  type: Type.ARRAY,
+                  items: { type: Type.STRING },
+                  description: "Os 3 passos exatos com os quais ela deve começar agora nas próximas duas horas.",
+                },
+                categorizedTasks: {
+                  type: Type.ARRAY,
+                  description: "Lista completa das tarefas processadas com priorização e tags temporais.",
+                  items: {
+                    type: Type.OBJECT,
+                    required: ["id", "title", "scheduleDecision", "estimatedTimeMinutes", "executiveReasoning"],
+                    properties: {
+                      id: { type: Type.INTEGER },
+                      title: { type: Type.STRING },
+                      scheduleDecision: {
+                        type: Type.STRING,
+                        description: "Tomada de decisão: 'HOJE', 'SEMANA_QUE_VEM' ou 'DELEGAR_OU_APOIAR'",
+                      },
+                      estimatedTimeMinutes: {
+                        type: Type.INTEGER,
+                        description: "Tempo estimado realista para execução em minutos",
+                      },
+                      executiveReasoning: {
+                        type: Type.STRING,
+                        description: "Breve explicação do porquê desta decisão, acalmando o lado impaciente dela.",
+                      },
                     },
                   },
                 },
               },
             },
           },
-        },
-      });
+        });
+        responseData = JSON.parse(response.text || "{}");
+      } catch (geminiError: any) {
+        console.warn("AI Planning model hit limit or high demand, using robust local contingency:", geminiError.message);
+        const advice = "Daniele, meu sistema principal de inteligência artificial está sob alta demanda momentânea. Mas, como sua Sócia Executiva ativa, acionei nossa contingência tática local. Suas tarefas estão seguras e foram triadas metodicamente. Sem culpa, sem correria. Dê pequenos passos.";
+        
+        // Pick the top 3 atomic tasks
+        const topThree = tasks.slice(0, 3).map((t: any) => t.title) || ["Beber água fresca agora", "Fazer compressa para a cabeça", "Pedir ajuda ao Rapha com o Pedro"];
+        if (topThree.length < 3) {
+          topThree.push("Beber um copo de água fria");
+        }
 
-      res.json(JSON.parse(response.text || "{}"));
+        const categorizedTasks = tasks.map((t: any, idx: number) => {
+          let scheduleDecision = "HOJE";
+          let executiveReasoning = "Triado localmente para hoje com energia e tempo reduzidos.";
+          let estimatedTimeMinutes = t.estimatedTimeMinutes || 20;
+
+          const titleLower = (t.title || "").toLowerCase();
+          if (titleLower.includes("capcut") || titleLower.includes("edição") || titleLower.includes("leitura") || titleLower.includes("estudo") || titleLower.includes("livro") || titleLower.includes("pesad")) {
+            scheduleDecision = "SEMANA_QUE_VEM";
+            executiveReasoning = "Exige esforço visual intenso. Como você está com enxaqueca e Topiramato, poupar os olhos é essencial.";
+          } else if (titleLower.includes("carregar") || titleLower.includes("comprar") || titleLower.includes("limpar") || titleLower.includes("pegar") || titleLower.includes("passar o pano")) {
+            scheduleDecision = "DELEGAR_OU_APOIAR";
+            executiveReasoning = "Atividade de esforço físico ou locomoção. Peça apoio ou delegue ao Rapha para preservar sua energia.";
+          } else if (idx >= 3) {
+            scheduleDecision = "SEMANA_QUE_VEM";
+            executiveReasoning = "Vamos dosar sua energia hoje. Para aliviar sua mente exausta, adiamos para a próxima semana.";
+          }
+
+          return {
+            id: t.id,
+            title: t.title,
+            scheduleDecision,
+            estimatedTimeMinutes,
+            executiveReasoning
+          };
+        });
+
+        responseData = { advice, topThree, categorizedTasks };
+      }
+
+      res.json(responseData);
     } catch (error: any) {
       console.error("Error in AI planning endpoint:", error);
       res.status(500).json({ error: error.message });
@@ -139,26 +180,62 @@ Você deve responder estritamente com um JSON estruturado contendo:
 - "childAdvice": Conselho focado na Rebeca (11 anos), brincadeiras, hidratação ou estudos.
 - "generalWarning": Um pequeno alerta de 1 frase destacando a maior atenção física do clima hoje.`;
 
-      const response = await ai.models.generateContent({
-        model: "gemini-3.5-flash",
-        contents: `Clima informado: Temp ${temperature}°C, Umidade ${humidity}%, Pressão ${pressure} hPa. Contexto adicional: ${JSON.stringify(userContext)}`,
-        config: {
-          systemInstruction: weatherPrompt,
-          responseMimeType: "application/json",
-          responseSchema: {
-            type: Type.OBJECT,
-            required: ["momAdvice", "babyAdvice", "childAdvice", "generalWarning"],
-            properties: {
-              momAdvice: { type: Type.STRING },
-              babyAdvice: { type: Type.STRING },
-              childAdvice: { type: Type.STRING },
-              generalWarning: { type: Type.STRING },
+      let advice;
+      try {
+        const response = await ai.models.generateContent({
+          model: "gemini-3.5-flash",
+          contents: `Clima informado: Temp ${temperature}°C, Umidade ${humidity}%, Pressão ${pressure} hPa. Contexto adicional: ${JSON.stringify(userContext)}`,
+          config: {
+            systemInstruction: weatherPrompt,
+            responseMimeType: "application/json",
+            responseSchema: {
+              type: Type.OBJECT,
+              required: ["momAdvice", "babyAdvice", "childAdvice", "generalWarning"],
+              properties: {
+                momAdvice: { type: Type.STRING },
+                babyAdvice: { type: Type.STRING },
+                childAdvice: { type: Type.STRING },
+                generalWarning: { type: Type.STRING },
+              },
             },
           },
-        },
-      });
+        });
+        advice = JSON.parse(response.text || "{}");
+      } catch (geminiError: any) {
+        console.warn("Weather advice model hit limit or high demand, using robust local weather fallback:", geminiError.message);
+        
+        // Detailed, compassionate local rule system designed for Daniele, Pedro and Rebeca
+        let momAdvice = "Daniele, com o Topiramato na primeira semana e a amamentação ativa do Pedro, sua necessidade de água dobra. Beba bastante água fria para manter o ritmo e aliviar a cabeça.";
+        let babyAdvice = "Mantenha o Pedro (6 meses) em ambiente fresco e amamente em livre demanda para hidratação natural.";
+        let childAdvice = "Garanta que a Rebeca (11 anos) esteja bebendo água fresca e tenha pausas de descanso em suas atividades hoje.";
+        let generalWarning = "Atenção voltada à sua hidratação constante para combater os efeitos do Topiramato hoje.";
 
-      res.json(JSON.parse(response.text || "{}"));
+        if (humidity < 45) {
+          generalWarning = "Alerta de Umidade Baixa: Ar seco exige cuidado respiratório redobrado para toda a casa.";
+          momAdvice = "Daniele, o ar seco agrava a exaustão física e a secura ocular do Topiramato. Beba água sem parar e repouse a vista sempre que possível.";
+          babyAdvice = "Higienize o nariz do Pedro (6 meses) com soro fisiológico várias vezes e ligue o umidificador de ar no quarto dele.";
+          childAdvice = "Incentive a Rebeca (11 anos) a se hidratar bem e evite que ela realize atividades físicas expostas ao ar livre nas horas secas.";
+        } else if (temperature > 29) {
+          generalWarning = "Alerta de Calor Forte: Prevenção contra desidratação e brotoejas em destaque hoje.";
+          momAdvice = "Daniele, evite exposição direta ao sol e prefira bebidas geladas e leves. Reduza o ritmo visual das telas quentes.";
+          babyAdvice = "Vista o Pedro com roupas leves de algodão e ofereça amamentação em livre demanda, pois o leite de início hidrata e sacia.";
+          childAdvice = "Rebeca deve usar roupas bem frescas e realizar apenas brincadeiras tranquilas na sombra.";
+        } else if (temperature < 19) {
+          generalWarning = "Alerta de Frio: Agasalhe o bebê em camadas confortáveis e ofereça conforto térmico.";
+          momAdvice = "Daniele, aproveite bebidas quentes confortáveis. Evite correntes de ar frio para prevenir piora da dor de cabeça.";
+          babyAdvice = "Proteja o Pedro (6 meses) com agasalho confortável em camadas de algodão e evite banhos excessivamente longos.";
+          childAdvice = "Mantenha a Rebeca aquecida e garanta que ela evite banhos demorados com água muito quente.";
+        }
+
+        if (pressure < 1011) {
+          generalWarning = "Alerta de Baixa Pressão Atmosférica: Forte gatilho físico para crises de enxaqueca hoje.";
+          momAdvice = "Daniele, a baixa pressão atmosférica associada ao Topiramato é um forte gatilho de enxaqueca. Escureça telas, use compressas frias e reduza a digitação hoje.";
+        }
+
+        advice = { momAdvice, babyAdvice, childAdvice, generalWarning };
+      }
+
+      res.json(advice);
     } catch (error: any) {
       console.error("Error in weather advice endpoint:", error);
       res.status(500).json({ error: error.message });
@@ -234,26 +311,60 @@ Você deve responder estritamente com um JSON estruturado contendo:
 - "childAdvice": Conselho focado na Rebeca (11 anos), brincadeiras, hidratação ou estudos.
 - "generalWarning": Um pequeno alerta de 1 frase destacando a maior atenção física do clima hoje.`;
 
-      const aiResponse = await ai.models.generateContent({
-        model: "gemini-3.5-flash",
-        contents: `Clima obtido em tempo real para ${resolvedCityName}: Temp ${tempVal}°C, Umidade ${humVal}%, Pressão ${pressVal} hPa. Contexto adicional: ${JSON.stringify(userContext)}`,
-        config: {
-          systemInstruction: weatherPrompt,
-          responseMimeType: "application/json",
-          responseSchema: {
-            type: Type.OBJECT,
-            required: ["momAdvice", "babyAdvice", "childAdvice", "generalWarning"],
-            properties: {
-              momAdvice: { type: Type.STRING },
-              babyAdvice: { type: Type.STRING },
-              childAdvice: { type: Type.STRING },
-              generalWarning: { type: Type.STRING },
+      let advice;
+      try {
+        const aiResponse = await ai.models.generateContent({
+          model: "gemini-3.5-flash",
+          contents: `Clima obtido em tempo real para ${resolvedCityName}: Temp ${tempVal}°C, Umidade ${humVal}%, Pressão ${pressVal} hPa. Contexto adicional: ${JSON.stringify(userContext)}`,
+          config: {
+            systemInstruction: weatherPrompt,
+            responseMimeType: "application/json",
+            responseSchema: {
+              type: Type.OBJECT,
+              required: ["momAdvice", "babyAdvice", "childAdvice", "generalWarning"],
+              properties: {
+                momAdvice: { type: Type.STRING },
+                babyAdvice: { type: Type.STRING },
+                childAdvice: { type: Type.STRING },
+                generalWarning: { type: Type.STRING },
+              },
             },
           },
-        },
-      });
+        });
+        advice = JSON.parse(aiResponse.text || "{}");
+      } catch (geminiError: any) {
+        console.warn("Real-time weather advice model hit limit or high demand, using robust local weather fallback:", geminiError.message);
+        
+        // Detailed, compassionate local rule system designed for Daniele, Pedro and Rebeca
+        let momAdvice = "Daniele, com o Topiramato na primeira semana e a amamentação ativa do Pedro, sua necessidade de água dobra. Beba bastante água fria para manter o ritmo e aliviar a cabeça.";
+        let babyAdvice = "Mantenha o Pedro (6 meses) em ambiente fresco e amamente em livre demanda para hidratação natural.";
+        let childAdvice = "Garanta que a Rebeca (11 anos) esteja bebendo água fresca e tenha pausas de descanso em suas atividades hoje.";
+        let generalWarning = "Atenção voltada à sua hidratação constante para combater os efeitos do Topiramato hoje.";
 
-      const advice = JSON.parse(aiResponse.text || "{}");
+        if (humVal < 45) {
+          generalWarning = "Alerta de Umidade Baixa: Ar seco exige cuidado respiratório redobrado para toda a casa.";
+          momAdvice = "Daniele, o ar seco agrava a exaustão física e a secura ocular do Topiramato. Beba água sem parar e repouse a vista sempre que possível.";
+          babyAdvice = "Higienize o nariz do Pedro (6 meses) com soro fisiológico várias vezes e ligue o umidificador de ar no quarto dele.";
+          childAdvice = "Incentive a Rebeca (11 anos) a se hidratar bem e evite que ela realize atividades físicas ao ar livre nas horas secas.";
+        } else if (tempVal > 29) {
+          generalWarning = "Alerta de Calor Forte: Prevenção contra desidratação e brotoejas em destaque hoje.";
+          momAdvice = "Daniele, evite exposição direta ao sol e prefira bebidas geladas e leves. Reduza o ritmo visual das telas quentes.";
+          babyAdvice = "Vista o Pedro com roupas leves de algodão e ofereça amamentação em livre demanda, pois o leite de início hidrata e sacia.";
+          childAdvice = "Rebeca deve usar roupas bem frescas e realizar apenas brincadeiras tranquilas na sombra.";
+        } else if (tempVal < 19) {
+          generalWarning = "Alerta de Frio: Agasalhe o bebê em camadas confortáveis e ofereça conforto térmico.";
+          momAdvice = "Daniele, aproveite bebidas quentes confortáveis. Evite correntes de ar frio para prevenir piora da dor de cabeça.";
+          babyAdvice = "Proteja o Pedro (6 meses) com agasalho confortável em camadas de algodão e evite banhos excessivamente longos.";
+          childAdvice = "Mantenha a Rebeca aquecida e garanta que ela evite banhos demorados com água muito quente.";
+        }
+
+        if (pressVal < 1011) {
+          generalWarning = "Alerta de Baixa Pressão Atmosférica: Forte gatilho físico para crises de enxaqueca hoje.";
+          momAdvice = "Daniele, a baixa pressão atmosférica associada ao Topiramato é um forte gatilho de enxaqueca. Escureça telas, use compressas frias e reduza a digitação hoje.";
+        }
+
+        advice = { momAdvice, babyAdvice, childAdvice, generalWarning };
+      }
 
       res.json({
         success: true,
@@ -302,55 +413,246 @@ REGRAS CRÍTICAS DA MOM:
 Você deve responder estritamente com um JSON estruturado contendo:
 - "tasks": um array de tarefas extraídas e priorizadas.`;
 
-      const response = await ai.models.generateContent({
-        model: "gemini-3.5-flash",
-        contents: `Texto para analisar: "${text}"`,
-        config: {
-          systemInstruction: importPrompt,
-          responseMimeType: "application/json",
-          responseSchema: {
-            type: Type.OBJECT,
-            required: ["tasks"],
-            properties: {
-              tasks: {
-                type: Type.ARRAY,
-                description: "Lista de tarefas identificadas e estruturadas intelectualmente.",
-                items: {
-                  type: Type.OBJECT,
-                  required: ["title", "category", "scheduleDecision", "estimatedTimeMinutes", "executiveReasoning"],
-                  properties: {
-                    title: {
-                      type: Type.STRING,
-                      description: "Título conciso, focado no verbo de ação (ex: 'Limpar escrivaninha')",
-                    },
-                    category: {
-                      type: Type.STRING,
-                      description: "Categoria da atividade: 'DOMESTICO', 'MATERNIDADE', 'PROFISSIONAL', 'SAUDE_PESSOAL' ou 'OUTROS'",
-                    },
-                    scheduleDecision: {
-                      type: Type.STRING,
-                      description: "Triagem para alívio: 'HOJE', 'SEMANA_QUE_VEM' ou 'DELEGAR_OU_APOIAR'",
-                    },
-                    estimatedTimeMinutes: {
-                      type: Type.INTEGER,
-                      description: "Tempo estimado em minutos necessário para a ação.",
-                    },
-                    executiveReasoning: {
-                      type: Type.STRING,
-                      description: "Breve frase justificando por que agendar dessa forma, poupando a mente dela de culpa.",
+      let responseData;
+      try {
+        const response = await ai.models.generateContent({
+          model: "gemini-3.5-flash",
+          contents: `Texto para analisar: "${text}"`,
+          config: {
+            systemInstruction: importPrompt,
+            responseMimeType: "application/json",
+            responseSchema: {
+              type: Type.OBJECT,
+              required: ["tasks"],
+              properties: {
+                tasks: {
+                  type: Type.ARRAY,
+                  description: "Lista de tarefas identificadas e estruturadas intelectualmente.",
+                  items: {
+                    type: Type.OBJECT,
+                    required: ["title", "category", "scheduleDecision", "estimatedTimeMinutes", "executiveReasoning"],
+                    properties: {
+                      title: {
+                        type: Type.STRING,
+                        description: "Título conciso, focado no verbo de ação (ex: 'Limpar escrivaninha')",
+                      },
+                      category: {
+                        type: Type.STRING,
+                        description: "Categoria da atividade: 'DOMESTICO', 'MATERNIDADE', 'PROFISSIONAL', 'SAUDE_PESSOAL' ou 'OUTROS'",
+                      },
+                      scheduleDecision: {
+                        type: Type.STRING,
+                        description: "Triagem para alívio: 'HOJE', 'SEMANA_QUE_VEM' ou 'DELEGAR_OU_APOIAR'",
+                      },
+                      estimatedTimeMinutes: {
+                        type: Type.INTEGER,
+                        description: "Tempo estimado em minutos necessário para a ação.",
+                      },
+                      executiveReasoning: {
+                        type: Type.STRING,
+                        description: "Breve frase justificando por que agendar dessa forma, poupando a mente dela de culpa.",
+                      },
                     },
                   },
                 },
               },
             },
           },
-        },
-      });
+        });
+        responseData = JSON.parse(response.text || "{\"tasks\":[]}");
+      } catch (geminiError: any) {
+        console.warn("AI Import model hit limit or high demand, using robust local parser:", geminiError.message);
+        
+        // Robust split pattern for Brazilian Portuguese inputs
+        const items = text
+          .split(/[\n,;•\-]+/g)
+          .map((item: string) => item.trim())
+          .filter((item: string) => item.length > 2);
 
-      res.json(JSON.parse(response.text || "{\"tasks\":[]}"));
+        const tasksList = items.map((titleStr: string, idx: number) => {
+          let category = "DOMESTICO";
+          let scheduleDecision = "HOJE";
+          let executiveReasoning = "Triado localmente de forma segura devido a alta demanda do sistema principal.";
+          let estimatedTimeMinutes = 20;
+
+          const titleLower = titleStr.toLowerCase();
+
+          // Category assignment
+          if (titleLower.includes("pedro") || titleLower.includes("bebe") || titleLower.includes("bebê") || titleLower.includes("papinha") || titleLower.includes("mama") || titleLower.includes("fubá")) {
+            category = "MATERNIDADE";
+            estimatedTimeMinutes = 25;
+          } else if (titleLower.includes("rebeca") || titleLower.includes("escola") || titleLower.includes("lição") || titleLower.includes("estudo")) {
+            category = "MATERNIDADE";
+            estimatedTimeMinutes = 30;
+          } else if (titleLower.includes("trabalho") || titleLower.includes("post") || titleLower.includes("cliente") || titleLower.includes("venda") || titleLower.includes("capcut") || titleLower.includes("edição")) {
+            category = "PROFISSIONAL";
+            estimatedTimeMinutes = 45;
+          } else if (titleLower.includes("dor") || titleLower.includes("remedio") || titleLower.includes("médico") || titleLower.includes("consulta") || titleLower.includes("água") || titleLower.includes("caminhada")) {
+            category = "SAUDE_PESSOAL";
+            estimatedTimeMinutes = 15;
+          }
+
+          // Prioritization & scheduleDecision assignment
+          if (titleLower.includes("capcut") || titleLower.includes("edição") || titleLower.includes("estudo") || titleLower.includes("ler") || titleLower.includes("livro") || titleLower.includes("pesad")) {
+            scheduleDecision = "SEMANA_QUE_VEM";
+            executiveReasoning = "Exige alta carga visual e foco mental. Como você está com enxaqueca, poupar a vista hoje é prioridade absoluta.";
+          } else if (titleLower.includes("comprar") || titleLower.includes("limpar") || titleLower.includes("passar o pano") || titleLower.includes("organizar") || titleLower.includes("lavar")) {
+            scheduleDecision = "DELEGAR_OU_APOIAR";
+            executiveReasoning = "Atividade com esforço físico de moderado a alto. Peça auxílio ao Rapha para não esgotar suas energias.";
+          } else if (idx >= 3) {
+            scheduleDecision = "SEMANA_QUE_VEM";
+            executiveReasoning = "Triado para depois a fim de garantir que sua mente e corpo descansem de forma justa hoje.";
+          }
+
+          // Capitalize first letter beautifully
+          const formattedTitle = titleStr.charAt(0).toUpperCase() + titleStr.slice(1);
+
+          return {
+            title: formattedTitle,
+            category,
+            scheduleDecision,
+            estimatedTimeMinutes,
+            executiveReasoning
+          };
+        });
+
+        responseData = { tasks: tasksList };
+      }
+
+      res.json(responseData);
     } catch (error: any) {
       console.error("Error in AI importing endpoint:", error);
       res.status(500).json({ error: error.message });
+    }
+  });
+
+  // API route to stream general responses from Gemini (Damage Control and Joga Aqui)
+  app.post("/api/generate", async (req, res) => {
+    try {
+      const { prompt } = req.body;
+
+      res.setHeader("Content-Type", "text/event-stream");
+      res.setHeader("Cache-Control", "no-cache");
+      res.setHeader("Connection", "keep-alive");
+
+      let userPrompt = prompt || "";
+      let systemInstruction = `Você é a MOM — Minha Outra Mente. Copiloto pessoal de Dani:
+mãe de Pedro (6 meses, amamentando) e Rebeca (11 anos). Pós-parto.
+Trocou sertralina por topiramato há 1 semana. Tem enxaqueca como efeito colateral.
+Voz: direta, acolhedora, executiva. Frases curtas.
+Nunca romantize o cansaço. Nunca use "e" comercial. Português brasileiro.`;
+
+      if (userPrompt.includes("Você é a MOM — Minha Outra Mente")) {
+        const parts = userPrompt.split("\n\n");
+        if (parts.length > 1) {
+          systemInstruction = parts[0];
+          userPrompt = parts.slice(1).join("\n\n");
+        }
+      }
+
+      try {
+        const responseStream = await ai.models.generateContentStream({
+          model: "gemini-3.5-flash",
+          contents: userPrompt,
+          config: {
+            systemInstruction,
+          }
+        });
+
+        for await (const chunk of responseStream) {
+          if (chunk.text) {
+            res.write(`data: ${JSON.stringify({ delta: { text: chunk.text } })}\n\n`);
+          }
+        }
+        res.write("data: [DONE]\n\n");
+        res.end();
+      } catch (geminiError: any) {
+        console.warn("AI Streaming generate hit limit, using robust local contingency:", geminiError.message);
+        
+        let fallbackText = "";
+        if (userPrompt.includes("Estado agora:")) {
+          const sleepMal = userPrompt.toLowerCase().includes("sono ruim") || userPrompt.toLowerCase().includes("mal");
+          const painForte = userPrompt.toLowerCase().includes("dor de cabeça forte") || userPrompt.toLowerCase().includes("forte");
+          const painLeve = userPrompt.toLowerCase().includes("dor de cabeça leve") || userPrompt.toLowerCase().includes("leve");
+          
+          fallbackText = "Dani, meu sistema principal de IA está sob alta demanda, mas acionei nossa contingência local. ";
+          if (sleepMal && painForte) {
+            fallbackText += "Como você não dormiu e está com dor de cabeça forte, suspenda todas as tarefas pesadas. Vá deitar com o Pedro agora. Beba água gelada para aliviar a cabeça e o efeito do Topiramato.";
+          } else if (sleepMal) {
+            fallbackText += "Sem dormir, sua energia está baixa. Priorize as vacinas e a papa do Pedro. O resto da limpeza e dos estudos fica para a semana que vem.";
+          } else if (painForte) {
+            fallbackText += "Essa dor de cabeça é forte. Apague as luzes, desligue o celular e repouse os olhos. Beba bastante água gelada.";
+          } else if (painLeve) {
+            fallbackText += "Com dor de cabeça leve, faça apenas o bloco urgente hoje. Evite a tela do CapCut e estudos complexos hoje.";
+          } else {
+            fallbackText += "Você dormiu bem e está sem dor de cabeça hoje. Ótimo! Faça as tarefas urgentes primeiro e reserve um tempo para descansar.";
+          }
+        } else if (userPrompt.includes("Converta este texto em tarefas atômicas")) {
+          let inboxText = "";
+          const textMatch = userPrompt.match(/Texto:\s*"([\s\S]*)"/i);
+          if (textMatch) {
+            inboxText = textMatch[1];
+          } else {
+            inboxText = userPrompt;
+          }
+          
+          const items = inboxText
+            .split(/[\n,;•\-]+/g)
+            .map((item: string) => item.trim())
+            .filter((item: string) => item.length > 2 && !item.includes("Você é a MOM") && !item.includes("Converta este texto"));
+
+          const tasksList = items.map((titleStr: string, idx: number) => {
+            let category = "Casa";
+            let urgent = false;
+            const titleLower = titleStr.toLowerCase();
+
+            if (titleLower.includes("pedro") || titleLower.includes("bebe") || titleLower.includes("bebê") || titleLower.includes("papinha") || titleLower.includes("mama") || titleLower.includes("fubá") || titleLower.includes("vacina")) {
+              category = "Filhos e Bebê";
+              urgent = true;
+            } else if (titleLower.includes("rebeca") || titleLower.includes("escola") || titleLower.includes("lição") || titleLower.includes("estudo")) {
+              category = "Filhos e Bebê";
+            } else if (titleLower.includes("trabalho") || titleLower.includes("post") || titleLower.includes("cliente") || titleLower.includes("venda") || titleLower.includes("capcut") || titleLower.includes("edição") || titleLower.includes("ebook")) {
+              category = "Projetos";
+            } else if (titleLower.includes("dor") || titleLower.includes("remedio") || titleLower.includes("médico") || titleLower.includes("consulta") || titleLower.includes("água") || titleLower.includes("pélvica") || titleLower.includes("sangue")) {
+              category = "Sua saúde";
+            }
+
+            let time = "15 min";
+            if (category === "Projetos") time = "1h";
+            if (category === "Filhos e Bebê" && titleLower.includes("vacina")) time = "1h";
+            
+            return {
+              text: titleStr.charAt(0).toUpperCase() + titleStr.slice(1),
+              time,
+              cat: category,
+              urgent
+            };
+          }).slice(0, 6);
+
+          fallbackText = JSON.stringify(tasksList, null, 2);
+        } else {
+          fallbackText = "Dani, estou aqui para te apoiar. Foque no essencial para você e para as crianças hoje.";
+        }
+
+        const chunkSize = 15;
+        for (let i = 0; i < fallbackText.length; i += chunkSize) {
+          const chunk = fallbackText.slice(i, i + chunkSize);
+          res.write(`data: ${JSON.stringify({ delta: { text: chunk } })}\n\n`);
+          await new Promise(resolve => setTimeout(resolve, 20));
+        }
+
+        res.write("data: [DONE]\n\n");
+        res.end();
+      }
+    } catch (err: any) {
+      console.error("Error in /api/generate:", err);
+      try {
+        res.write(`data: ${JSON.stringify({ delta: { text: "Erro ao processar. Por favor, tente novamente." } })}\n\n`);
+        res.write("data: [DONE]\n\n");
+        res.end();
+      } catch (writeErr) {
+        // Response already ended or headers sent
+      }
     }
   });
 
